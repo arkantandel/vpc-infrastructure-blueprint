@@ -1,224 +1,345 @@
-<!-- 🌩️ ULTRA CLOUD NETWORK BANNER -->
+# 🚀 Step-by-Step Creation — DevOps Monitoring Platform
 
-<p align="center">
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f2027,50:2c5364,100:00c6ff&height=250&section=header&text=AWS%20VPC%20Architecture%20Guide&fontSize=45&fontColor=ffffff&animation=fadeIn"/>
-</p>
+> This section explains how the entire monitoring platform was built from zero
+> like a real DevOps engineer deploying production infrastructure.
 
----
+Arkan Tandel
 
-# 🌩️ AWS VPC Creation — Cloud Network Architecture Guide
-
-<h3 align="center">Designing Secure, Scalable and Production-Ready Cloud Networks</h3>
+🔗 LinkedIn: https://www.linkedin.com/in/arkan-tandel
+🔗 GitHub: https://github.com/yourusername
 
 ---
 
-<p align="center">
+# 🌌 PHASE 1 — Project Initialization
 
-<img src="https://img.shields.io/badge/AWS-VPC-orange?style=for-the-badge&logo=amazonaws"/>
-<img src="https://img.shields.io/badge/Cloud-Networking-blue?style=for-the-badge"/>
-<img src="https://img.shields.io/badge/Architecture-Production%20Ready-green?style=for-the-badge"/>
-<img src="https://img.shields.io/badge/Domain-Cloud%20Engineer-red?style=for-the-badge"/>
+## 🎯 Goal
 
-</p>
+Create a production-style monitoring stack with:
 
----
-
-# 🌟 Project Vision
-
-A **Virtual Private Cloud (VPC)** allows you to create your own isolated network inside AWS Cloud —  
-similar to running your own private data center but fully managed and scalable.
-
-This guide demonstrates how real cloud engineers design production-ready network architectures.
+* Docker containers
+* Metrics collection
+* Visualization dashboard
+* Reverse proxy
+* Observability pipeline
 
 ---
 
-# 🧠 What You Will Learn
+## 🧱 Create Root Project Folder
 
-✔ Cloud Network Design  
-✔ Subnet Segmentation Strategy  
-✔ Secure Internet Access Design  
-✔ Private Workload Protection  
-✔ Enterprise Network Architecture Thinking  
+```bash
+mkdir devops-monitoring-platform
+cd devops-monitoring-platform
+```
 
----
+Create structure:
 
-# 🏗️ High Level Architecture
-
-```mermaid
-flowchart LR
-    Internet --> IGW
-    IGW --> PublicSubnet
-    PublicSubnet --> EC2
-    PublicSubnet --> NAT
-    NAT --> PrivateSubnet
-    PrivateSubnet --> RDS
+```bash
+mkdir backend nginx prometheus images
+touch docker-compose.yml
 ```
 
 ---
 
-# 🌐 Complete Cloud Network Architecture
+# ⚙️ PHASE 2 — Backend Service Creation
 
-```mermaid
-flowchart TD
-    User --> Internet
-    Internet --> IGW
-    IGW --> PublicSubnet
-    PublicSubnet --> WebEC2
-    PublicSubnet --> NATGateway
-    NATGateway --> PrivateSubnet
-    PrivateSubnet --> Database
+This service simulates an application that exposes metrics.
+
+## 📁 Navigate to Backend
+
+```bash
+cd backend
 ```
 
 ---
 
-# 🗺️ Step 1 — Create VPC
+## 🧠 Create Application Code
 
-### Configuration
+```bash
+nano app.js
+```
 
-Name: My-VPC  
-CIDR: 10.0.0.0/16  
+Paste:
 
-Purpose → Defines entire private network range.
+```js
+const express = require("express");
+const client = require("prom-client");
+
+const app = express();
+client.collectDefaultMetrics();
+
+const counter = new client.Counter({
+  name: "http_requests_total",
+  help: "Total requests"
+});
+
+app.get("/api", (req,res)=>{
+  counter.inc();
+  res.send("DevOps Monitoring App 🚀");
+});
+
+app.get("/metrics", async (req,res)=>{
+  res.set("Content-Type", client.register.contentType);
+  res.end(await client.register.metrics());
+});
+
+app.listen(5000);
+```
+
+Save.
 
 ---
 
-# 🧩 Step 2 — Create Subnets
+## 📦 Create Package File
 
-### Public Subnet
-CIDR → 10.0.1.0/24  
-Use → Web Servers, Bastion Host  
+```bash
+nano package.json
+```
 
----
+Paste:
 
-### Private Subnet
-CIDR → 10.0.2.0/24  
-Use → Databases, Backend Services  
-
----
-
-# 🌉 Step 3 — Internet Gateway (IGW)
-
-Purpose → Public Internet Access  
-
-```mermaid
-flowchart LR
-    Internet --> IGW --> VPC --> PublicSubnet
+```json
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "dependencies": {
+    "express": "^4.18.2",
+    "prom-client": "^14.2.0"
+  }
+}
 ```
 
 ---
 
-# 🛣️ Step 4 — Route Tables
+# 🐳 PHASE 3 — Containerization
 
-### Public Route Table
-0.0.0.0/0 → IGW  
+## Create Dockerfile
 
-### Private Route Table
-0.0.0.0/0 → NAT Gateway  
+```bash
+nano Dockerfile
+```
 
----
-
-# ⚙️ Step 5 — NAT Gateway
-
-Purpose → Secure Internet Access for Private Subnet  
-
-```mermaid
-flowchart TD
-    Internet --> IGW --> PublicSubnet --> NAT --> PrivateSubnet
+```dockerfile
+FROM node:18
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+CMD ["node","app.js"]
 ```
 
 ---
 
-# 🔐 Step 6 — Security Layers
+# 🌐 PHASE 4 — Reverse Proxy Layer
 
-| Layer | Protection |
-|---|---|
-Security Group | Instance Level Firewall |
-NACL | Subnet Level Firewall |
+Return to root:
 
----
+```bash
+cd ..
+cd nginx
+```
 
-# 🧠 Final Enterprise Architecture
+Create config:
 
-```mermaid
-flowchart TD
-    Internet --> IGW
-    IGW --> PublicSubnet
-    PublicSubnet --> WebEC2
-    PublicSubnet --> NATGateway
-    NATGateway --> PrivateSubnet
-    PrivateSubnet --> RDS
+```bash
+nano nginx.conf
+```
+
+```nginx
+events {}
+
+http {
+ server {
+  listen 80;
+
+  location / {
+   proxy_pass http://backend:5000;
+  }
+ }
+}
 ```
 
 ---
 
-# 📊 Network Traffic Flow
+# 📊 PHASE 5 — Monitoring Layer
 
-```mermaid
-sequenceDiagram
-    User->>Internet: Request Website
-    Internet->>IGW: Forward Request
-    IGW->>Public EC2: Web Request
-    EC2->>Private RDS: Database Query
-    RDS->>EC2: Data Response
-    EC2->>User: Final Response
+Navigate:
+
+```bash
+cd ..
+cd prometheus
+```
+
+Create config:
+
+```bash
+nano prometheus.yml
+```
+
+```yaml
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "backend"
+    static_configs:
+      - targets: ["backend:5000"]
 ```
 
 ---
 
-# ✅ VPC Components Summary
+# 🐳 PHASE 6 — Orchestration
 
-| Component | Purpose |
-|---|---|
-VPC | Main Network |
-Public Subnet | Internet Facing Resources |
-Private Subnet | Internal Secure Resources |
-IGW | Internet Access |
-NAT Gateway | Secure Outbound Access |
-Route Tables | Traffic Control |
-Security Groups | Instance Firewall |
-NACL | Subnet Firewall |
+Return root:
 
----
+```bash
+cd ..
+```
 
-# 🚀 Real World Usage
+Create compose file:
 
-✔ Web Applications  
-✔ Banking Systems  
-✔ SaaS Platforms  
-✔ Microservices Architecture  
-✔ Enterprise Cloud Infrastructure  
+```bash
+nano docker-compose.yml
+```
 
----
+```yaml
+version: "3"
 
-# 🧠 Cloud Engineer Pro Tips
+services:
 
-🔥 Always use Multi AZ Design  
-🔥 Keep Databases in Private Subnet  
-🔥 Use Bastion Host for SSH Access  
-🔥 Enable VPC Flow Logs  
-🔥 Use Private Endpoints for AWS Services  
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
 
----
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - backend
 
-# 👨‍💻 Author
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
 
-## Arkan Tandel  
-Cloud & DevOps Engineer 🚀  
-
-LinkedIn → https://www.linkedin.com/in/arkan-tandel  
-GitHub → https://github.com/arkantandel  
-
----
-
-# ❤️ Cloud Philosophy
-
-> Secure Networks Build Reliable Cloud Systems.
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+```
 
 ---
 
-<!-- FOOTER BANNER -->
+# 🚀 PHASE 7 — Launch Platform
 
-<p align="center">
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:00c6ff,50:2c5364,100:0f2027&height=120&section=footer"/>
-</p>
+## Build & Start
+
+```bash
+docker compose up -d --build
+```
+
+---
+
+# 🔍 PHASE 8 — Verification
+
+Check containers:
+
+```bash
+docker ps
+```
+
+---
+
+## Test Backend
+
+```bash
+curl localhost/api
+```
+
+---
+
+## Check Metrics
+
+```bash
+curl localhost:5000/metrics
+```
+
+---
+
+# 📊 PHASE 9 — Prometheus Setup
+
+Open browser:
+
+```
+http://SERVER-IP:9090
+```
+
+Query:
+
+```
+http_requests_total
+```
+
+---
+
+# 📈 PHASE 10 — Grafana Dashboard
+
+Open:
+
+```
+http://SERVER-IP:3000
+```
+
+Login:
+
+```
+admin / admin
+```
+
+Add datasource:
+
+```
+http://prometheus:9090
+```
+
+---
+
+## Create Graph Panel
+
+Query:
+
+```
+rate(http_requests_total[1m])
+```
+
+---
+
+# 🧪 PHASE 11 — Generate Traffic
+
+```bash
+for i in {1..300}; do curl http://localhost/api; done
+```
+
+Graph starts moving.
+
+---
+
+# 🏁 PHASE 12 — Final Architecture
+
+```mermaid
+flowchart TB
+    User --> Nginx
+    Nginx --> Backend
+    Backend --> Prometheus
+    Prometheus --> Grafana
+```
+
+---
+
 
